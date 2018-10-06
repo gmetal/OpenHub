@@ -1,5 +1,6 @@
 apply plugin: 'com.android.application'
 apply plugin: 'com.novoda.build-properties'
+apply plugin: 'com.apollographql.android'
 
 buildProperties {
     getPublic {
@@ -51,6 +52,7 @@ android {
         }
         debug {
             signingConfig signingConfigs.release
+            applicationIdSuffix ".dev"
         }
     }
 
@@ -93,6 +95,16 @@ repositories {
     flatDir {
         dirs 'libs' //aar
     }
+}
+
+apollo {
+    customTypeMapping = [
+            "Date" : "java.util.Date",
+            "DateTime" : "java.util.Date",
+            "URI" : "android.net.Uri",
+            "HTML" : "java.lang.String",
+            "GitSSHRemote": "java.lang.String"
+    ]
 }
 
 dependencies {
@@ -172,4 +184,9 @@ dependencies {
     implementation "com.timehop.stickyheadersrecyclerview:library:${STICKY_HEAD_VERSION}"
 
     implementation "org.jsoup:jsoup:${JSOUP_VERSION}"
+
+    implementation "com.apollographql.apollo:apollo-runtime:${APOLLO_VERSION}"
+    implementation "com.apollographql.apollo:apollo-android-support:${APOLLO_VERSION}"
+    implementation "com.apollographql.apollo:apollo-rx-support:${APOLLO_VERSION}"
+    implementation "com.apollographql.apollo:apollo-http-cache:${APOLLO_VERSION}"
 }
