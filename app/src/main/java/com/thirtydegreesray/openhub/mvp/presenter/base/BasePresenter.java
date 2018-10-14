@@ -11,6 +11,7 @@ import android.support.annotation.Nullable;
 import android.support.annotation.StringRes;
 import android.support.v4.app.Fragment;
 
+import com.apollographql.apollo.ApolloClient;
 import com.orhanobut.logger.Logger;
 import com.thirtydegreesray.dataautoaccess.DataAutoAccess;
 import com.thirtydegreesray.openhub.AppConfig;
@@ -27,8 +28,11 @@ import com.thirtydegreesray.openhub.http.OpenHubService;
 import com.thirtydegreesray.openhub.http.RepoService;
 import com.thirtydegreesray.openhub.http.SearchService;
 import com.thirtydegreesray.openhub.http.UserService;
+import com.thirtydegreesray.openhub.http.core.AppApollo;
 import com.thirtydegreesray.openhub.http.core.AppRetrofit;
+import com.thirtydegreesray.openhub.http.core.HttpApolloSubscriber;
 import com.thirtydegreesray.openhub.http.core.HttpObserver;
+import com.thirtydegreesray.openhub.http.core.HttpProgressApolloSubscriber;
 import com.thirtydegreesray.openhub.http.core.HttpProgressSubscriber;
 import com.thirtydegreesray.openhub.http.core.HttpResponse;
 import com.thirtydegreesray.openhub.http.core.HttpSubscriber;
@@ -197,6 +201,13 @@ public abstract class BasePresenter<V extends IBaseContract.View> implements IBa
     }
 
     /**
+     * Return Apollo client
+     */
+    protected ApolloClient getApolloClient() {
+        return AppApollo.INSTANCE.getApolloClient(AppConfig.GITHUB_GRAPHQL_BASE_URL, AppData.INSTANCE.getAccessToken());
+    }
+
+    /**
      * 获取上下文，需在onViewAttached()后调用
      *
      * @return
@@ -226,6 +237,9 @@ public abstract class BasePresenter<V extends IBaseContract.View> implements IBa
     }
 
 
+    protected interface IObservableApolloCreator<T> {
+        Observable<com.apollographql.apollo.api.Response<T>> createApolloObservable(boolean forceNetWork);
+    }
     /**
      * 一般的rx http请求执行
      *
@@ -248,6 +262,23 @@ public abstract class BasePresenter<V extends IBaseContract.View> implements IBa
         }
     }
 
+    protected <T> void generalRxApolloHttpExecute(
+            @NonNull Observable<com.apollographql.apollo.api.Response<T>> observable, @Nullable HttpApolloSubscriber<T> subscriber) {
+
+
+        if (subscriber != null) {
+            subscribers.add(subscriber);
+
+            observable.subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(subscriber);
+        } else {
+            observable.subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(new HttpApolloSubscriber<T>());
+        }
+    }
+
     protected <T> void generalRxHttpExecute(@NonNull IObservableCreator<T> observableCreator
             , @NonNull HttpObserver<T> httpObserver) {
         generalRxHttpExecute(observableCreator, httpObserver, false);
@@ -257,6 +288,12 @@ public abstract class BasePresenter<V extends IBaseContract.View> implements IBa
             , @NonNull HttpObserver<T> httpObserver, final boolean readCacheFirst) {
         generalRxHttpExecute(observableCreator, httpObserver, readCacheFirst, null);
     }
+
+    protected <T> void generalRxApolloHttpExecute(@NonNull IObservableApolloCreator<T> observableCreator
+            , @NonNull HttpObserver<T> httpObserver, final boolean readCacheFirst) {
+        generalRxApolloHttpExecute(observableCreator, httpObserver, readCacheFirst, null);
+    }
+
 
     //防止死循环
     private Map<String, Integer> requestTimesMap = new HashMap<>();
@@ -304,11 +341,61 @@ public abstract class BasePresenter<V extends IBaseContract.View> implements IBa
                 getHttpSubscriber(tempObserver, progressDialog));
     }
 
+    protected <T> void generalRxApolloHttpExecute(@NonNull final IObservableApolloCreator<T> observableCreator
+            , @NonNull final HttpObserver<T> httpObserver, final boolean readCacheFirst
+            , @Nullable final ProgressDialog progressDialog) {
+        requestTimesMap.put(observableCreator.toString(), 1);
+
+        final HttpObserver<T> tempObserver = new HttpObserver<T>() {
+            @Override
+            public void onError(Throwable error) {
+                if(!checkIsUnauthorized(error)){
+                    httpObserver.onError(error);
+                }
+            }
+
+            @Override
+            public void onSuccess(@NonNull HttpResponse<T> response) {
+                if (response.isSuccessful()) {
+                    if (readCacheFirst && response.isFromCache()
+                            && NetHelper.INSTANCE.getNetEnabled()
+                            && requestTimesMap.get(observableCreator.toString()) < 2) {
+                        requestTimesMap.put(observableCreator.toString(), 2);
+                        generalRxApolloHttpExecute(observableCreator.createApolloObservable(true),
+                                             getHttpApolloSubscriber(this, progressDialog));
+                    }
+                    httpObserver.onSuccess(response);
+                } else if(response.getOriResponse().code() == 404){
+                    onError(new HttpPageNoFoundError());
+                } else if(response.getOriResponse().code() == 504){
+                    onError(new HttpError(HttpErrorCode.NO_CACHE_AND_NETWORK));
+                } else if(response.getOriResponse().code() == 401){
+                    onError(new UnauthorizedError());
+                } else {
+                    onError(new Error(response.getOriResponse().message()));
+                }
+
+            }
+        };
+
+        boolean cacheFirstEnable = PrefUtils.isCacheFirstEnable();
+        //        cacheFirstEnable = cacheFirstEnable || !NetHelper.INSTANCE.getNetEnabled();
+        generalRxApolloHttpExecute(observableCreator.createApolloObservable(!cacheFirstEnable || !readCacheFirst),
+                                   getHttpApolloSubscriber(tempObserver, progressDialog));
+    }
+
     private <T> HttpSubscriber<T> getHttpSubscriber(HttpObserver<T> httpObserver, ProgressDialog progressDialog) {
         if(progressDialog == null)
             return new HttpSubscriber<>(httpObserver);
         else
             return new HttpProgressSubscriber<>(progressDialog, httpObserver);
+    }
+
+    private <T> HttpApolloSubscriber<T> getHttpApolloSubscriber(HttpObserver<T> httpObserver, ProgressDialog progressDialog) {
+        if(progressDialog == null)
+            return new HttpApolloSubscriber<>(httpObserver);
+        else
+            return new HttpProgressApolloSubscriber<>(progressDialog, httpObserver);
     }
 
     private boolean checkIsUnauthorized(Throwable error){

@@ -82,6 +82,22 @@ public enum AppApollo {
         }
     };
 
+    private CustomTypeAdapter<String> gitSshRemoteCustomTypeAdapter = new CustomTypeAdapter<String>() {
+
+        @Override
+        public String decode(@NotNull final CustomTypeValue value) {
+
+            return value.value.toString();
+        }
+
+        @NotNull
+        @Override
+        public CustomTypeValue encode(@NotNull final String value) {
+
+            return null;
+        }
+    };
+
     private void createApollo(@NonNull String baseUrl) {
 
         //Directory where cached responses will be stored
@@ -99,6 +115,7 @@ public enum AppApollo {
                 .addCustomTypeAdapter(CustomType.DATETIME, dateCustomTypeAdapter)
                 .addCustomTypeAdapter(CustomType.URI, uriCustomTypeAdapter)
                 .addCustomTypeAdapter(CustomType.HTML, htmlCustomTypeAdapter)
+                .addCustomTypeAdapter(CustomType.GITSSHREMOTE, gitSshRemoteCustomTypeAdapter)
                 .httpCache(new ApolloHttpCache(cacheStore))
                 .okHttpClient(AppOkHttp.INSTANCE.getOkHttpClient(token))
                 .build();
