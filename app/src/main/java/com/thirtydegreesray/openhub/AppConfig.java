@@ -21,6 +21,8 @@ public class AppConfig {
 
     public final static String GITHUB_CONTENT_BASE_URL = "https://raw.githubusercontent.com/";
 
+    public static final String GITHUB_GRAPHQL_BASE_URL = "https://api.github.com/graphql";
+
     /**
      * This link are for OpenHub only. Please do not use this endpoint in your applications.
      * If you want to get trending repositories, you may stand up your own instance.
