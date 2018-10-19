@@ -1,0 +1,55 @@
+query LoadRepository($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    ...RepositoryFragment
+    parent {
+      ...RepositoryFragment
+    }
+  }
+}
+
+fragment RepositoryFragment on Repository {
+  id
+  databaseId
+  name
+  fullName: nameWithOwner
+  isPrivate
+  url
+  description
+  primaryLanguage {
+    name
+  }
+  owner {
+    ... on User {
+      ... UserFragment
+    }
+    ... on Organization {
+      ...OrganizationFragment
+    }
+  }
+  defaultBranchRef {
+    name
+  }
+  createdAt
+  updatedAt
+  pushedAt
+  sshUrl
+  projectsUrl
+  url
+  mirrorUrl
+  stargazers {
+    totalCount
+  }
+  watchers {
+    totalCount
+  }
+  forkCount
+  issues(states: OPEN) {
+    totalCount
+  }
+  isFork
+  hasWikiEnabled
+
+  projects {
+    totalCount
+  }
+}

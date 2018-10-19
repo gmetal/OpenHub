@@ -1,0 +1,113 @@
+query FetchRepositories($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    id
+    name
+    releases(first: 5) {
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+      edges {
+        node {
+          id
+          name
+          tag {
+            id
+            name
+            target {
+              ...TagCommit
+              ...Tag
+            }
+          }
+          description
+          releaseAssets(first: 100) {
+            pageInfo {
+              hasNextPage
+              hasPreviousPage
+              startCursor
+              endCursor
+            }
+            edges {
+              node {
+                ...ReleaseAsset
+              }
+            }
+          }
+          isDraft
+          isPrerelease
+          createdAt
+          publishedAt
+          author {
+            ...UserFragment
+          }
+        }
+      }
+    }
+  }
+}
+
+fragment UserFragment on User {
+  id
+  databaseId
+  name
+  login
+  avatarUrl
+  websiteUrl
+  company
+  bioHTML
+  userEmail: email
+  bio
+  publicRepos: repositories(privacy: PUBLIC) {
+    totalCount
+  }
+  publicGists: gists(privacy: PUBLIC) {
+    totalCount
+  }
+  followers {
+    totalCount
+  }
+  following {
+    totalCount
+  }
+  createdAt
+  updatedAt
+}
+
+fragment OrganizationFragment on Organization {
+  id
+  databaseId
+  name
+  login
+  avatarUrl
+  websiteUrl
+  organizationEmail: email
+}
+
+fragment ReleaseAsset on ReleaseAsset {
+  id
+  name
+  uploadedBy {
+    ...UserFragment
+  }
+  contentType
+  size
+  downloadCount
+  createdAt
+  updatedAt
+  downloadUrl
+}
+
+fragment TagCommit on Commit {
+  id
+  tarballUrl
+  zipballUrl
+}
+
+fragment Tag on Tag {
+  id
+  target {
+    ...TagCommit
+  }
+}

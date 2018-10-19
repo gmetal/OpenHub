@@ -2,8 +2,10 @@
 
 package com.thirtydegreesray.openhub.mvp.presenter;
 
+import com.apollographql.apollo.rx.RxApollo;
 import com.thirtydegreesray.dataautoaccess.annotation.AutoAccess;
 import com.thirtydegreesray.openhub.AppData;
+import com.thirtydegreesray.openhub.LoadRepositoryQuery;
 import com.thirtydegreesray.openhub.R;
 import com.thirtydegreesray.openhub.dao.Bookmark;
 import com.thirtydegreesray.openhub.dao.BookmarkDao;
@@ -11,6 +13,7 @@ import com.thirtydegreesray.openhub.dao.DaoSession;
 import com.thirtydegreesray.openhub.dao.LocalRepo;
 import com.thirtydegreesray.openhub.dao.Trace;
 import com.thirtydegreesray.openhub.dao.TraceDao;
+import com.thirtydegreesray.openhub.fragment.RepositoryFragment;
 import com.thirtydegreesray.openhub.http.core.HttpObserver;
 import com.thirtydegreesray.openhub.http.core.HttpProgressSubscriber;
 import com.thirtydegreesray.openhub.http.core.HttpResponse;
@@ -31,6 +34,8 @@ import okhttp3.ResponseBody;
 import retrofit2.Response;
 import rx.Observable;
 import rx.functions.Func1;
+
+import static com.thirtydegreesray.openhub.mvp.model.ModelTransformations.transformRepository;
 
 /**
  * Created by ThirtyDegreesRay on 2017/8/9 21:42:47
@@ -57,11 +62,13 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
 
     @Inject
     public RepositoryPresenter(DaoSession daoSession) {
+
         super(daoSession);
     }
 
     @Override
     public void onViewInitialized() {
+
         super.onViewInitialized();
         if (repository != null) {
             owner = repository.getOwner().getLogin();
@@ -77,6 +84,7 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
 
     @Override
     public void loadBranchesAndTags() {
+
         if (branches != null) {
             mView.showBranchesAndTags(branches, curBranch);
             return;
@@ -85,13 +93,16 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
                 new HttpProgressSubscriber<>(
                         mView.getProgressDialog(getLoadTip()),
                         new HttpObserver<ArrayList<Branch>>() {
+
                             @Override
                             public void onError(Throwable error) {
+
                                 mView.showErrorToast(getErrorTip(error));
                             }
 
                             @Override
                             public void onSuccess(HttpResponse<ArrayList<Branch>> response) {
+
                                 setTags(response.body());
                                 branches.addAll(response.body());
                                 mView.showBranchesAndTags(branches, curBranch);
@@ -100,9 +111,11 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
                 );
         Observable<Response<ArrayList<Branch>>> observable = getRepoService().getBranches(owner, repoName)
                 .flatMap(new Func1<Response<ArrayList<Branch>>, Observable<Response<ArrayList<Branch>>>>() {
+
                     @Override
                     public Observable<Response<ArrayList<Branch>>> call(
                             Response<ArrayList<Branch>> arrayListResponse) {
+
                         branches = arrayListResponse.body();
                         return getRepoService().getTags(owner, repoName);
                     }
@@ -112,6 +125,7 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
 
     @Override
     public void starRepo(boolean star) {
+
         starred = star;
         Observable<Response<ResponseBody>> observable = starred ?
                 getRepoService().starRepo(owner, repoName) :
@@ -121,6 +135,7 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
 
     @Override
     public void watchRepo(boolean watch) {
+
         watched = watch;
         Observable<Response<ResponseBody>> observable = watched ?
                 getRepoService().watchRepo(owner, repoName) :
@@ -130,17 +145,21 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
 
     @Override
     public void createFork() {
+
         mView.getProgressDialog(getLoadTip()).show();
         HttpObserver<Repository> httpObserver = new HttpObserver<Repository>() {
+
             @Override
             public void onError(Throwable error) {
+
                 mView.showErrorToast(getErrorTip(error));
                 mView.getProgressDialog(getLoadTip()).dismiss();
             }
 
             @Override
             public void onSuccess(HttpResponse<Repository> response) {
-                if(response.body() != null) {
+
+                if (response.body() != null) {
                     mView.showSuccessToast(getString(R.string.forked));
                     RepositoryActivity.show(getContext(), response.body());
                 } else {
@@ -150,8 +169,10 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
             }
         };
         generalRxHttpExecute(new IObservableCreator<Repository>() {
+
             @Override
             public Observable<Response<Repository>> createObservable(boolean forceNetWork) {
+
                 return getRepoService().createFork(owner, repoName);
             }
         }, httpObserver);
@@ -159,62 +180,81 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
 
     @Override
     public boolean isForkEnable() {
-        if(repository != null && !repository.isFork() &&
-                !repository.getOwner().getLogin().equals(AppData.INSTANCE.getLoggedUser().getLogin())){
+
+        if (repository != null && !repository.isFork() &&
+                !repository.getOwner().getLogin().equals(AppData.INSTANCE.getLoggedUser().getLogin())) {
             return true;
         }
         return false;
     }
 
     private void setTags(ArrayList<Branch> list) {
+
         for (Branch branch : list) {
             branch.setBranch(false);
         }
     }
 
     private void getRepoInfo(final boolean isShowLoading) {
-        if (isShowLoading) mView.showLoading();
-        HttpObserver<Repository> httpObserver =
-                new HttpObserver<Repository>() {
+
+        if (isShowLoading) {
+            mView.showLoading();
+        }
+        HttpObserver<LoadRepositoryQuery.Data> httpObserver =
+                new HttpObserver<LoadRepositoryQuery.Data>() {
+
                     @Override
                     public void onError(Throwable error) {
-                        if (isShowLoading) mView.hideLoading();
-                        mView.showErrorToast(getErrorTip(error));
+
+                        if (isShowLoading) {
+                            mView.hideLoading();
+                        }
+                        mView.showErrorToast(error.getMessage());
                     }
 
                     @Override
-                    public void onSuccess(HttpResponse<Repository> response) {
-                        if (isShowLoading) mView.hideLoading();
-                        repository = response.body();
+                    public void onSuccess(HttpResponse<LoadRepositoryQuery.Data> response) {
+
+                        if (isShowLoading) {
+                            mView.hideLoading();
+                        }
+                        final LoadRepositoryQuery.Repository serverRepo = response.body().repository();
+                        final RepositoryFragment parentFragment = (serverRepo.parent() == null) ? null : serverRepo.parent().fragments().repositoryFragment();
+
+                        repository = transformRepository(serverRepo.fragments().repositoryFragment(), parentFragment);
                         initCurBranch();
-                        mView.showRepo(repository);
+                        mView.showRepo(RepositoryPresenter.this.repository);
                         checkStatus();
                         saveTrace();
                     }
                 };
 
-        generalRxHttpExecute(new IObservableCreator<Repository>() {
-            @Override
-            public Observable<Response<Repository>> createObservable(boolean forceNetWork) {
-                return getRepoService().getRepoInfo(forceNetWork, owner, repoName);
-            }
-        }, httpObserver, true);
+        generalRxApolloHttpExecute(forceNetWork -> RxApollo.from(getApolloClient().query(
+                LoadRepositoryQuery.builder()
+                        .owner(owner)
+                        .name(repoName)
+                        .build())), httpObserver, true);
     }
 
-    private void checkStatus(){
-        if(isStatusChecked) return;
+    private void checkStatus() {
+
+        if (isStatusChecked) {
+            return;
+        }
         isStatusChecked = true;
         checkStarred();
         checkWatched();
     }
 
-
     private void checkStarred() {
+
         checkStatus(
                 getRepoService().checkRepoStarred(owner, repoName),
                 new CheckStatusCallback() {
+
                     @Override
                     public void onChecked(boolean status) {
+
                         starred = status;
                         mView.invalidateOptionsMenu();
                         starWishes();
@@ -224,11 +264,14 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
     }
 
     private void checkWatched() {
+
         checkStatus(
                 getRepoService().checkRepoWatched(owner, repoName),
                 new CheckStatusCallback() {
+
                     @Override
                     public void onChecked(boolean status) {
+
                         watched = status;
                         mView.invalidateOptionsMenu();
                     }
@@ -236,64 +279,78 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
         );
     }
 
-    private void initCurBranch(){
+    private void initCurBranch() {
+
         curBranch = new Branch(repository.getDefaultBranch());
         curBranch.setZipballUrl("https://github.com/".concat(owner).concat("/")
-                .concat(repoName).concat("/archive/")
-                .concat(curBranch.getName()).concat(".zip"));
+                                        .concat(repoName).concat("/archive/")
+                                        .concat(curBranch.getName()).concat(".zip"));
         curBranch.setTarballUrl("https://github.com/".concat(owner).concat("/")
-                .concat(repoName).concat("/archive/")
-                .concat(curBranch.getName()).concat(".tar.gz"));
+                                        .concat(repoName).concat("/archive/")
+                                        .concat(curBranch.getName()).concat(".tar.gz"));
     }
 
     public Repository getRepository() {
+
         return repository;
     }
 
     public boolean isFork() {
+
         return repository != null && repository.isFork();
     }
 
     public boolean isStarred() {
+
         return starred;
     }
 
     public boolean isWatched() {
+
         return watched;
     }
 
-    public String getZipSourceUrl(){
+    public String getZipSourceUrl() {
+
         return curBranch.getZipballUrl();
     }
 
-    public String getZipSourceName(){
+    public String getZipSourceName() {
+
         return repoName.concat("-").concat(curBranch.getName()).concat(".zip");
     }
 
-    public String getTarSourceUrl(){
+    public String getTarSourceUrl() {
+
         return curBranch.getTarballUrl();
     }
 
-    public String getTarSourceName(){
+    public String getTarSourceName() {
+
         return repoName.concat("-").concat(curBranch.getName()).concat(".tar.gz");
     }
 
     public void setCurBranch(Branch curBranch) {
+
         this.curBranch = curBranch;
     }
 
     public String getRepoName() {
+
         return repository == null ? repoName : repository.getName();
     }
 
-    private void starWishes(){
-        if(!starred && getString(R.string.author_login_id).equals(owner)
+    private void starWishes() {
+
+        if (!starred && getString(R.string.author_login_id).equals(owner)
                 && getString(R.string.app_name).equals(repoName)
-                && StarWishesHelper.isStarWishesTipable()){
+                && StarWishesHelper.isStarWishesTipable()) {
             new android.os.Handler().postDelayed(new Runnable() {
+
                 @Override
                 public void run() {
-                    if(!starred && mView != null){
+
+                    if (!starred && mView != null) {
                         mView.showStarWishes();
                     }
                 }
@@ -303,7 +360,8 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
 
     @Override
     public boolean isBookmarked() {
-        if(!isBookmarkQueried && repository != null){
+
+        if (!isBookmarkQueried && repository != null) {
             bookmarked = daoSession.getBookmarkDao().queryBuilder()
                     .where(BookmarkDao.Properties.RepoId.eq(repository.getId()))
                     .unique() != null;
@@ -314,30 +372,34 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
 
     @Override
     public void bookmark(boolean bookmark) {
-        if(repository == null) return;
+
+        if (repository == null) {
+            return;
+        }
         bookmarked = bookmark;
         Bookmark bookmarkModel = daoSession.getBookmarkDao().queryBuilder()
                 .where(BookmarkDao.Properties.RepoId.eq(repository.getId()))
                 .unique();
-        if(bookmark && bookmarkModel == null){
+        if (bookmark && bookmarkModel == null) {
             bookmarkModel = new Bookmark(UUID.randomUUID().toString());
             bookmarkModel.setType("repo");
             bookmarkModel.setRepoId((long) repository.getId());
             bookmarkModel.setMarkTime(new Date());
             daoSession.getBookmarkDao().insert(bookmarkModel);
-        } else if(!bookmark && bookmarkModel != null){
+        } else if (!bookmark && bookmarkModel != null) {
             daoSession.getBookmarkDao().delete(bookmarkModel);
         }
     }
 
-    private void saveTrace(){
-        daoSession.runInTx(() ->{
-            if(!isTraceSaved){
+    private void saveTrace() {
+
+        daoSession.runInTx(() -> {
+            if (!isTraceSaved) {
                 Trace trace = daoSession.getTraceDao().queryBuilder()
                         .where(TraceDao.Properties.RepoId.eq(repository.getId()))
                         .unique();
 
-                if(trace == null){
+                if (trace == null) {
                     trace = new Trace(UUID.randomUUID().toString());
                     trace.setType("repo");
                     trace.setRepoId((long) repository.getId());
@@ -355,7 +417,7 @@ public class RepositoryPresenter extends BasePresenter<IRepositoryContract.View>
 
             LocalRepo localRepo = daoSession.getLocalRepoDao().load((long) repository.getId());
             LocalRepo updateRepo = repository.toLocalRepo();
-            if(localRepo == null){
+            if (localRepo == null) {
                 daoSession.getLocalRepoDao().insert(updateRepo);
             } else {
                 daoSession.getLocalRepoDao().update(updateRepo);

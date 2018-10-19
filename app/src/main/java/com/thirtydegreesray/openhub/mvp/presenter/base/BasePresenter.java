@@ -30,6 +30,7 @@ import com.thirtydegreesray.openhub.http.SearchService;
 import com.thirtydegreesray.openhub.http.UserService;
 import com.thirtydegreesray.openhub.http.core.AppApollo;
 import com.thirtydegreesray.openhub.http.core.AppRetrofit;
+import com.thirtydegreesray.openhub.http.core.HttpApolloResponse;
 import com.thirtydegreesray.openhub.http.core.HttpApolloSubscriber;
 import com.thirtydegreesray.openhub.http.core.HttpObserver;
 import com.thirtydegreesray.openhub.http.core.HttpProgressApolloSubscriber;
@@ -365,14 +366,8 @@ public abstract class BasePresenter<V extends IBaseContract.View> implements IBa
                                              getHttpApolloSubscriber(this, progressDialog));
                     }
                     httpObserver.onSuccess(response);
-                } else if(response.getOriResponse().code() == 404){
-                    onError(new HttpPageNoFoundError());
-                } else if(response.getOriResponse().code() == 504){
-                    onError(new HttpError(HttpErrorCode.NO_CACHE_AND_NETWORK));
-                } else if(response.getOriResponse().code() == 401){
-                    onError(new UnauthorizedError());
                 } else {
-                    onError(new Error(response.getOriResponse().message()));
+                    onError(new Error(((HttpApolloResponse) response).getErrors().get(0).toString()));
                 }
 
             }
