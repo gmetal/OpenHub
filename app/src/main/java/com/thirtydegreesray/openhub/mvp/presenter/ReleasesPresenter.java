@@ -6,6 +6,7 @@ import com.thirtydegreesray.openhub.FetchRepositoriesQuery;
 import com.thirtydegreesray.openhub.dao.DaoSession;
 import com.thirtydegreesray.openhub.http.core.HttpObserver;
 import com.thirtydegreesray.openhub.http.core.HttpResponse;
+import com.thirtydegreesray.openhub.http.model.Paginator;
 import com.thirtydegreesray.openhub.mvp.contract.IReleasesContract;
 import com.thirtydegreesray.openhub.mvp.model.ModelTransformations;
 import com.thirtydegreesray.openhub.mvp.model.Release;
@@ -27,6 +28,8 @@ public class ReleasesPresenter extends BasePresenter<IReleasesContract.View>
     @AutoAccess String owner;
     @AutoAccess String repo;
     private ArrayList<Release> releases;
+
+    private Paginator paginator = new Paginator();
 
     @Inject
     public ReleasesPresenter(DaoSession daoSession) {

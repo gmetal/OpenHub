@@ -1,13 +1,10 @@
-query FetchRepositories($owner: String!, $name: String!) {
+query FetchRepositories($owner: String!, $name: String!, $after: String = null, $before: String = null, $first: Int = 5) {
   repository(owner: $owner, name: $name) {
     id
     name
-    releases(first: 5) {
+    releases(first: $first, after: $after, before: $before) {
       pageInfo {
-        hasNextPage
-        hasPreviousPage
-        startCursor
-        endCursor
+        ...Paginator
       }
       edges {
         node {
@@ -110,4 +107,11 @@ fragment Tag on Tag {
   target {
     ...TagCommit
   }
+}
+
+fragment Paginator on PageInfo {
+  hasNextPage
+  hasPreviousPage
+  startCursor
+  endCursor
 }
